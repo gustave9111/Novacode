@@ -3,3 +3,21 @@ dist/
 build/
 .env
 .snapshots/
+
+# Logs
+*.log
+
+# Fichiers temporaires
+*.tmp
+*.bak
+*.old
+
+# Sauvegardes NovaCode
+novacode-before-*.js
+novacode-v1.js
+
+# macOS
+.DS_Store
+
+# Couverture de tests
+coverage/

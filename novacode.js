@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+const {
+  executerCommandeTerminal
+} = require("./core/terminal");
 
 const readline = require("readline");
 const path = require("path");
@@ -34,6 +37,7 @@ const contexte = {
   version: "2.0.0",
   projetCourant: process.cwd(),
   historique: [],
+  historiqueShell: [],
   registre: null,
   afficherTitre
 };
@@ -71,6 +75,13 @@ async function traiterEntree(entree) {
     return;
   }
 
+  if (texte.startsWith("!")) {
+  const commandeTerminal = texte.slice(1).trim();
+
+  await executerShell(commandeTerminal);
+  afficherInvite();
+  return;
+}
   if (/^!\d+$/.test(texte)) {
     const numero = Number.parseInt(texte.slice(1), 10);
     const ancienneCommande =
@@ -119,6 +130,49 @@ async function executerTexte(texte, enregistrer) {
   } catch (erreur) {
     console.log("\nUne erreur est survenue :");
     console.log(erreur.message);
+  }
+
+  console.log("");
+}
+
+async function executerShell(commandeTerminal) {
+  if (!commandeTerminal) {
+    console.log("\nUtilisation : !<commande>");
+    console.log("Exemple : !git status\n");
+    return;
+  }
+
+  console.log(
+    `\n$ ${commandeTerminal}`
+  );
+  console.log("─".repeat(60));
+
+  const resultat =
+    await executerCommandeTerminal(
+      commandeTerminal,
+      contexte.projetCourant
+    );
+
+  contexte.historiqueShell.push({
+    commande: commandeTerminal,
+    dossier: contexte.projetCourant,
+    date: new Date().toISOString(),
+    code: resultat.code,
+    stdout: resultat.stdout,
+    stderr: resultat.stderr
+  });
+
+  if (
+    resultat.stderr &&
+    !resultat.stdout
+  ) {
+    console.log(`\n${resultat.stderr}`);
+  }
+
+  if (resultat.code !== null) {
+    console.log(
+      `\n[Code de sortie : ${resultat.code}]`
+    );
   }
 
   console.log("");
