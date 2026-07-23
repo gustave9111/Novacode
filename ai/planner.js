@@ -1,78 +1,208 @@
 const path = require("path");
 
+const OUTILS_AUTORISES = new Set([
+  "analyse",
+  "doctor",
+  "stats",
+  "todo",
+  "arbre",
+  "recherche",
+  "lire",
+  "fix",
+  "git-status",
+  "tests"
+]);
+
+function ajouterEtape(plan, outil, raison, parametres = {}) {
+  if (!OUTILS_AUTORISES.has(outil)) {
+    return;
+  }
+
+  const existeDeja = plan.etapes.some(etape => {
+    return (
+      etape.outil === outil &&
+      JSON.stringify(etape.parametres) ===
+        JSON.stringify(parametres)
+    );
+  });
+
+  if (existeDeja) {
+    return;
+  }
+
+  plan.etapes.push({
+    ordre: plan.etapes.length + 1,
+    outil,
+    raison,
+    parametres
+  });
+}
+
+function detecterFichiers(question) {
+  const correspondances = question.match(
+    /(?:^|\s)([\w./-]+\.[a-zA-Z0-9]+)(?=\s|$|[?!,;:])/g
+  );
+
+  if (!correspondances) {
+    return [];
+  }
+
+  return correspondances.map(element => {
+    return element.trim();
+  });
+}
+
 function extraireTermeRecherche(question) {
   const expressions = [
-    /où (?:est|sont) utilisée?s? (.+?)[?.!]*$/i,
-    /où (?:est|sont) défini(?:e|s)? (.+?)[?.!]*$/i,
+    /où (?:est|sont) utilisée?s?\s+(.+?)[?.!]*$/i,
+    /où (?:est|sont) défini(?:e|s)?\s+(.+?)[?.!]*$/i,
     /cherche\s+["']?(.+?)["']?[?.!]*$/i,
     /recherche\s+["']?(.+?)["']?[?.!]*$/i,
     /trouve\s+["']?(.+?)["']?[?.!]*$/i
   ];
 
   for (const expression of expressions) {
-    const correspondance = question.match(expression);
+    const resultat = question.match(expression);
 
-    if (correspondance) {
-      return correspondance[1].trim();
+    if (resultat) {
+      return resultat[1].trim();
     }
   }
 
   return null;
 }
 
-function detecterFichier(question) {
-  const correspondance = question.match(
-    /(?:^|\s)([\w./-]+\.[a-zA-Z0-9]+)(?:\s|$|\?|,)/i
-  );
+function classerDemande(question) {
+  const texte = question.toLowerCase();
 
-  return correspondance
-    ? correspondance[1]
-    : null;
+  if (
+    texte.includes("corrige") ||
+    texte.includes("répare") ||
+    texte.includes("repare") ||
+    texte.includes("bug") ||
+    texte.includes("erreur")
+  ) {
+    return "correction";
+  }
+
+  if (
+    texte.includes("ajoute") ||
+    texte.includes("crée") ||
+    texte.includes("cree") ||
+    texte.includes("implémente") ||
+    texte.includes("implemente")
+  ) {
+    return "creation";
+  }
+
+  if (
+    texte.includes("explique") ||
+    texte.includes("comprend") ||
+    texte.includes("décris") ||
+    texte.includes("decris")
+  ) {
+    return "explication";
+  }
+
+  if (
+    texte.includes("améliore") ||
+    texte.includes("ameliore") ||
+    texte.includes("review") ||
+    texte.includes("revue")
+  ) {
+    return "amelioration";
+  }
+
+  if (
+    texte.includes("test") ||
+    texte.includes("npm test")
+  ) {
+    return "tests";
+  }
+
+  return "generale";
 }
 
-function planifierOutils(question) {
-  const texte = question.toLowerCase();
-  const outils = new Set();
+function planifierDemande(question, projetCourant) {
+  const demande = question.trim();
 
-  const demandeGenerale =
-    texte.includes("explique le projet") ||
-    texte.includes("analyse le projet") ||
-    texte.includes("améliorer le projet") ||
-    texte.includes("ameliorer le projet") ||
-    texte.includes("coder ensuite") ||
-    texte.includes("prochaine étape") ||
-    texte.includes("prochaine etape") ||
-    texte.includes("roadmap") ||
-    texte.includes("revue") ||
-    texte.includes("review");
-
-  if (demandeGenerale) {
-    outils.add("analyse");
-    outils.add("stats");
-    outils.add("doctor");
-    outils.add("todo");
-    outils.add("arbre");
+  if (!demande) {
+    return {
+      succes: false,
+      erreur: "La demande est vide."
+    };
   }
 
-  if (
-    texte.includes("doctor") ||
-    texte.includes("score") ||
-    texte.includes("santé") ||
-    texte.includes("sante") ||
-    texte.includes("problème") ||
-    texte.includes("probleme")
-  ) {
-    outils.add("doctor");
-  }
+  const plan = {
+    succes: true,
+    demande,
+    projet: projetCourant,
+    type: classerDemande(demande),
+    lectureSeule: true,
+    etapes: []
+  };
+
+  const texte = demande.toLowerCase();
+  const fichiers = detecterFichiers(demande);
+  const termeRecherche = extraireTermeRecherche(demande);
+
+  ajouterEtape(
+    plan,
+    "analyse",
+    "Comprendre le type et la structure générale du projet."
+  );
 
   if (
-    texte.includes("stat") ||
-    texte.includes("combien de fichier") ||
-    texte.includes("combien de ligne") ||
-    texte.includes("taille du projet") ||
-    texte.includes("plus gros fichier")
+    plan.type === "correction" ||
+    plan.type === "amelioration"
   ) {
-    outils.add("stats");
+    ajouterEtape(
+      plan,
+      "doctor",
+      "Repérer les avertissements et problèmes de qualité."
+    );
+
+    ajouterEtape(
+      plan,
+      "fix",
+      "Vérifier la syntaxe, les tests et l’état Git."
+    );
+  }
+
+  if (plan.type === "creation") {
+    ajouterEtape(
+      plan,
+      "arbre",
+      "Trouver le meilleur emplacement pour la nouvelle fonctionnalité.",
+      {
+        profondeur: 3
+      }
+    );
+
+    ajouterEtape(
+      plan,
+      "recherche",
+      "Chercher une fonctionnalité similaire déjà présente.",
+      {
+        terme: termeRecherche || demande
+      }
+    );
+  }
+
+  if (plan.type === "explication") {
+    ajouterEtape(
+      plan,
+      "stats",
+      "Mesurer la taille et la composition du projet."
+    );
+  }
+
+  if (plan.type === "tests") {
+    ajouterEtape(
+      plan,
+      "tests",
+      "Exécuter les tests configurés dans le projet."
+    );
   }
 
   if (
@@ -82,46 +212,74 @@ function planifierOutils(question) {
     texte.includes("tâche") ||
     texte.includes("tache")
   ) {
-    outils.add("todo");
+    ajouterEtape(
+      plan,
+      "todo",
+      "Repérer les tâches et problèmes laissés dans les commentaires."
+    );
   }
 
   if (
     texte.includes("structure") ||
-    texte.includes("arbre") ||
-    texte.includes("organisation") ||
-    texte.includes("architecture")
+    texte.includes("architecture") ||
+    texte.includes("organisation")
   ) {
-    outils.add("arbre");
+    ajouterEtape(
+      plan,
+      "arbre",
+      "Visualiser l’organisation des fichiers.",
+      {
+        profondeur: 4
+      }
+    );
   }
 
   if (
-    texte.includes("type de projet") ||
-    texte.includes("technologie") ||
-    texte.includes("langage")
+    texte.includes("git") ||
+    texte.includes("commit") ||
+    texte.includes("branche")
   ) {
-    outils.add("analyse");
+    ajouterEtape(
+      plan,
+      "git-status",
+      "Vérifier l’état du dépôt Git."
+    );
   }
 
-  const termeRecherche = extraireTermeRecherche(question);
+  for (const fichier of fichiers) {
+    ajouterEtape(
+      plan,
+      "lire",
+      `Lire le fichier mentionné : ${fichier}.`,
+      {
+        fichier: path.normalize(fichier)
+      }
+    );
+  }
 
   if (termeRecherche) {
-    outils.add("recherche");
+    ajouterEtape(
+      plan,
+      "recherche",
+      `Trouver les occurrences de ${termeRecherche}.`,
+      {
+        terme: termeRecherche
+      }
+    );
   }
 
-  const fichier = detecterFichier(question);
-
-  if (outils.size === 0 && !fichier) {
-    outils.add("analyse");
-    outils.add("doctor");
+  if (plan.etapes.length === 1) {
+    ajouterEtape(
+      plan,
+      "doctor",
+      "Compléter l’analyse avec l’état général du projet."
+    );
   }
 
-  return {
-    outils: [...outils],
-    termeRecherche,
-    fichier
-  };
+  return plan;
 }
 
 module.exports = {
-  planifierOutils
+  planifierDemande,
+  OUTILS_AUTORISES
 };
