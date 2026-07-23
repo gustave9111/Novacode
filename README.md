@@ -1,10 +1,20 @@
-/tmp/21318B51-31EA-432A-A6A9-5AE951BAAB1B.jpeg
+<p align="center">
+  <img src="assets/banner.png" alt="NovaCode Banner">
+</p>
+
+<p align="center">
+  <img src="assets/logo.png" width="140" alt="NovaCode Logo">
+</p>
+
 # 🚀 NovaCode
-        /tmp/3A8ACED8-80A7-4866-BE44-5CA6814186CD.jpeg
-> **Un assistant de programmation intelligent pour le terminal.**
+![Node.js](https://img.shields.io/badge/Node.js-20+-339933?logo=node.js&logoColor=white)
 
-NovaCode est un assistant CLI conçu pour aider les développeurs à comprendre, analyser et améliorer leurs projets de manière sécurisée. Il combine des outils d'analyse locale avec l'intelligence artificielle pour proposer des modifications sans jamais les appliquer automatiquement.
+![License](https://img.shields.io/badge/license-MIT-blue)
 
+![Version](https://img.shields.io/badge/version-3.0.0--beta.1-purple)
+
+![Status](https://img.shields.io/badge/status-beta-orange)
+> Intelligent CLI Coding Assistant
 ---
 
 ## ✨ Fonctionnalités
